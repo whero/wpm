@@ -1,0 +1,18 @@
+name: WheroPluginManager
+version: ${version}
+main: net.whero.pluginmanager.WheroPluginManager
+api-version: '1.21'
+description: A plugin manager for PaperMC servers
+authors: [Whero]
+
+commands:
+  wpm:
+    description: Whero Plugin Manager
+    usage: /<command> <search|install|github|remove|update|list|info|reload>
+    permission: wpm.admin
+    aliases: [pluginmanager]
+
+permissions:
+  wpm.admin:
+    description: Allows use of the WPM plugin manager
+    default: op
