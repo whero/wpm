@@ -1,8 +1,16 @@
+[![PaperMC](https://img.shields.io/badge/PaperMC-1.21.1-blue)](https://papermc.io/)
+[![Java](https://img.shields.io/badge/Java-21-orange)](https://openjdk.org/)
+[![License](https://img.shields.io/badge/License-GPL2-green)](LICENSE)
+
 # Whero Plugin Manager (WPM)
 
 A lightweight in-game plugin manager for PaperMC servers. Search, install, update, and remove plugins directly from your server console or chat — no manual JAR downloads needed.
 
 WPM supports **Hangar** (PaperMC's official plugin repository), **GitHub Releases**, and the **GeyserMC Downloads API** as plugin sources.
+
+⚠️ This plugin is only created for my own use case and YMMV. Use at your own risk. ⚠️
+
+🪲 The code is created quickly using AI assistance, bugs do exist. Use at your own risk. 🪲
 
 ## Features
 
