@@ -20,6 +20,7 @@ Thumbs.db
 # Build outputs
 *.jar
 !gradle/wrapper/gradle-wrapper.jar
+.kotlin/
 
 # Runtime
 run/

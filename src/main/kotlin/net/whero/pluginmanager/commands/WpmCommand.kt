@@ -35,6 +35,8 @@ class WpmCommand(private val plugin: WheroPluginManager) : CommandExecutor {
             "github" -> handleGitHub(sender, args)
             "geyser" -> handleGeyser(sender, args)
             "remove" -> handleRemove(sender, args)
+            "disable" -> handleDisable(sender, args)
+            "enable" -> handleEnable(sender, args)
             "update" -> handleUpdate(sender, args)
             "list" -> handleList(sender)
             "info" -> handleInfo(sender, args)
@@ -134,6 +136,22 @@ class WpmCommand(private val plugin: WheroPluginManager) : CommandExecutor {
             return
         }
         plugin.installManager.removePlugin(sender, args[1])
+    }
+
+    private fun handleDisable(sender: CommandSender, args: Array<out String>) {
+        if (args.size < 2) {
+            sender.sendError("Usage: /wpm disable <name>")
+            return
+        }
+        plugin.installManager.disablePlugin(sender, args[1])
+    }
+
+    private fun handleEnable(sender: CommandSender, args: Array<out String>) {
+        if (args.size < 2) {
+            sender.sendError("Usage: /wpm enable <name>")
+            return
+        }
+        plugin.installManager.enablePlugin(sender, args[1])
     }
 
     private fun handleUpdate(sender: CommandSender, args: Array<out String>) {
@@ -681,6 +699,8 @@ class WpmCommand(private val plugin: WheroPluginManager) : CommandExecutor {
             "/wpm github <owner/repo>" to "Install from GitHub Releases",
             "/wpm geyser <project>" to "Install from GeyserMC Downloads",
             "/wpm remove <name>" to "Remove an installed plugin",
+            "/wpm disable <name>" to "Disable a plugin on next reload",
+            "/wpm enable <name>" to "Enable a disabled plugin on next reload",
             "/wpm update [name]" to "Update one or all plugins",
             "/wpm list" to "List tracked plugins",
             "/wpm info <slug>" to "Show Hangar plugin details",

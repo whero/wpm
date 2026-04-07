@@ -221,6 +221,114 @@ class PluginInstallManager(private val plugin: WheroPluginManager) {
         }
     }
 
+    fun disablePlugin(sender: CommandSender, name: String) {
+        val tracked = tracker.getTracked(name)
+        val currentFileName: String
+        val isTracked: Boolean
+
+        if (tracked != null) {
+            currentFileName = tracked.fileName
+            isTracked = true
+        } else {
+            val bp = Bukkit.getPluginManager().getPlugin(name)
+            if (bp == null) {
+                sender.sendError("Plugin '$name' is not tracked or loaded.")
+                return
+            }
+            currentFileName = try {
+                val getFileMethod = org.bukkit.plugin.java.JavaPlugin::class.java.getDeclaredMethod("getFile")
+                getFileMethod.isAccessible = true
+                (getFileMethod.invoke(bp) as? File)?.name ?: run {
+                    sender.sendError("Could not resolve JAR file for '$name'.")
+                    return
+                }
+            } catch (e: Exception) {
+                sender.sendError("Could not resolve JAR file for '$name': ${e.message}")
+                return
+            }
+            isTracked = false
+        }
+
+        if (currentFileName.endsWith(".disabled")) {
+            sender.sendWarning("${tracked?.name ?: name} is already disabled.")
+            return
+        }
+
+        val file = File(pluginsDir, currentFileName)
+        if (!file.exists()) {
+            sender.sendError("File $currentFileName not found in plugins folder.")
+            return
+        }
+
+        val disabledFile = File(pluginsDir, "$currentFileName.disabled")
+        if (disabledFile.exists()) disabledFile.delete()
+
+        if (!file.renameTo(disabledFile)) {
+            sender.sendError("Failed to rename $currentFileName. It may be locked.")
+            return
+        }
+
+        if (isTracked && tracked != null) {
+            tracker.track(tracked.copy(fileName = disabledFile.name))
+        }
+
+        sender.sendSuccess("Disabled ${tracked?.name ?: name}. Restart the server to unload it.")
+    }
+
+    fun enablePlugin(sender: CommandSender, name: String) {
+        val tracked = tracker.getTracked(name)
+
+        val disabledFile: File
+        val restoredName: String
+
+        if (tracked != null) {
+            val current = File(pluginsDir, tracked.fileName)
+            disabledFile = when {
+                tracked.fileName.endsWith(".disabled") && current.exists() -> current
+                File(pluginsDir, "${tracked.fileName}.disabled").exists() ->
+                    File(pluginsDir, "${tracked.fileName}.disabled")
+                else -> {
+                    sender.sendWarning("${tracked.name} is not disabled.")
+                    return
+                }
+            }
+            restoredName = disabledFile.name.removeSuffix(".disabled")
+        } else {
+            // Search plugins folder for a matching .disabled file
+            val candidates = pluginsDir.listFiles { f ->
+                f.isFile && f.name.endsWith(".jar.disabled") &&
+                    f.name.substringBeforeLast(".jar.disabled").contains(name, ignoreCase = true)
+            } ?: emptyArray()
+            if (candidates.isEmpty()) {
+                sender.sendError("No disabled plugin file matching '$name' found.")
+                return
+            }
+            if (candidates.size > 1) {
+                sender.sendError("Multiple disabled files match '$name': ${candidates.joinToString(", ") { it.name }}")
+                return
+            }
+            disabledFile = candidates[0]
+            restoredName = disabledFile.name.removeSuffix(".disabled")
+        }
+
+        val target = File(pluginsDir, restoredName)
+        if (target.exists()) {
+            sender.sendError("Cannot enable: $restoredName already exists.")
+            return
+        }
+
+        if (!disabledFile.renameTo(target)) {
+            sender.sendError("Failed to rename ${disabledFile.name}. It may be locked.")
+            return
+        }
+
+        if (tracked != null) {
+            tracker.track(tracked.copy(fileName = restoredName))
+        }
+
+        sender.sendSuccess("Enabled ${tracked?.name ?: name}. Restart the server to load it.")
+    }
+
     fun removePlugin(sender: CommandSender, name: String) {
         val tracked = tracker.getTracked(name)
         if (tracked == null) {

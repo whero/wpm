@@ -8,7 +8,7 @@ import org.bukkit.command.TabCompleter
 
 class WpmTabCompleter(private val plugin: WheroPluginManager) : TabCompleter {
 
-    private val subcommands = listOf("search", "install", "github", "geyser", "remove", "update", "list", "info", "identify", "rollback", "unlink", "relink", "reload")
+    private val subcommands = listOf("search", "install", "github", "geyser", "remove", "disable", "enable", "update", "list", "info", "identify", "rollback", "unlink", "relink", "reload")
 
     override fun onTabComplete(
         sender: CommandSender,
@@ -22,7 +22,7 @@ class WpmTabCompleter(private val plugin: WheroPluginManager) : TabCompleter {
 
         if (args.size == 2) {
             return when (args[0].lowercase()) {
-                "remove", "update", "unlink", "relink", "rollback" -> {
+                "remove", "update", "unlink", "relink", "rollback", "disable", "enable" -> {
                     plugin.pluginTracker.getTrackedNames()
                         .filter { it.lowercase().startsWith(args[1].lowercase()) }
                 }
