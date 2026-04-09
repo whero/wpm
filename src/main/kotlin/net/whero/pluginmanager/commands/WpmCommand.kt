@@ -202,11 +202,17 @@ class WpmCommand(private val plugin: WheroPluginManager) : CommandExecutor {
                 val hasUpdate = latestVersion != null && !VersionUtils.isSameVersion(tp.installedVersion, latestVersion)
                 if (hasUpdate) updatesAvailable++
 
+                val isDisabled = tp.fileName.endsWith(".disabled")
+
                 sync {
                     var line = Component.text(" ● ", NamedTextColor.DARK_GRAY)
                         .append(Component.text(tp.name, NamedTextColor.WHITE, TextDecoration.BOLD))
                         .append(Component.text(" v${tp.installedVersion}", NamedTextColor.GREEN))
                         .append(Component.text(" ($sourceLabel: ${tp.sourceIdentifier})", NamedTextColor.GRAY))
+
+                    if (isDisabled) {
+                        line = line.append(Component.text(" [disabled]", NamedTextColor.RED, TextDecoration.BOLD))
+                    }
 
                     if (hasUpdate) {
                         line = line
