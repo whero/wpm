@@ -37,6 +37,8 @@ class WpmCommand(private val plugin: WheroPluginManager) : CommandExecutor {
             "remove" -> handleRemove(sender, args)
             "disable" -> handleDisable(sender, args)
             "enable" -> handleEnable(sender, args)
+            "pin" -> handlePin(sender, args)
+            "unpin" -> handleUnpin(sender, args)
             "update" -> handleUpdate(sender, args)
             "list" -> handleList(sender)
             "info" -> handleInfo(sender, args)
@@ -154,6 +156,22 @@ class WpmCommand(private val plugin: WheroPluginManager) : CommandExecutor {
         plugin.installManager.enablePlugin(sender, args[1])
     }
 
+    private fun handlePin(sender: CommandSender, args: Array<out String>) {
+        if (args.size < 2) {
+            sender.sendError("Usage: /wpm pin <name>")
+            return
+        }
+        plugin.installManager.pinPlugin(sender, args[1])
+    }
+
+    private fun handleUnpin(sender: CommandSender, args: Array<out String>) {
+        if (args.size < 2) {
+            sender.sendError("Usage: /wpm unpin <name>")
+            return
+        }
+        plugin.installManager.unpinPlugin(sender, args[1])
+    }
+
     private fun handleUpdate(sender: CommandSender, args: Array<out String>) {
         val name = if (args.size >= 2) args[1] else null
         plugin.installManager.updatePlugin(sender, name)
@@ -200,7 +218,7 @@ class WpmCommand(private val plugin: WheroPluginManager) : CommandExecutor {
                 }
 
                 val hasUpdate = latestVersion != null && !VersionUtils.isSameVersion(tp.installedVersion, latestVersion)
-                if (hasUpdate) updatesAvailable++
+                if (hasUpdate && !tp.pinned) updatesAvailable++
 
                 val isDisabled = tp.fileName.endsWith(".disabled")
 
@@ -214,7 +232,13 @@ class WpmCommand(private val plugin: WheroPluginManager) : CommandExecutor {
                         line = line.append(Component.text(" [disabled]", NamedTextColor.RED, TextDecoration.BOLD))
                     }
 
-                    if (hasUpdate) {
+                    if (tp.pinned) {
+                        line = line.append(Component.text(" [pinned]", NamedTextColor.LIGHT_PURPLE, TextDecoration.BOLD))
+                    }
+
+                    if (hasUpdate && tp.pinned) {
+                        line = line.append(Component.text(" → $latestVersion available", NamedTextColor.DARK_GRAY))
+                    } else if (hasUpdate) {
                         line = line
                             .append(Component.text(" → $latestVersion", NamedTextColor.YELLOW))
                             .append(
@@ -707,6 +731,8 @@ class WpmCommand(private val plugin: WheroPluginManager) : CommandExecutor {
             "/wpm remove <name>" to "Remove an installed plugin",
             "/wpm disable <name>" to "Disable a plugin on next reload",
             "/wpm enable <name>" to "Enable a disabled plugin on next reload",
+            "/wpm pin <name>" to "Pin a plugin at its current version",
+            "/wpm unpin <name>" to "Unpin a plugin so it updates again",
             "/wpm update [name]" to "Update one or all plugins",
             "/wpm list" to "List tracked plugins",
             "/wpm info <slug>" to "Show Hangar plugin details",

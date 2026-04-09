@@ -329,6 +329,34 @@ class PluginInstallManager(private val plugin: WheroPluginManager) {
         sender.sendSuccess("Enabled ${tracked?.name ?: name}. Restart the server to load it.")
     }
 
+    fun pinPlugin(sender: CommandSender, name: String) {
+        val tracked = tracker.getTracked(name)
+        if (tracked == null) {
+            sender.sendError("Plugin '$name' is not tracked by WPM.")
+            return
+        }
+        if (tracked.pinned) {
+            sender.sendWarning("${tracked.name} is already pinned at v${tracked.installedVersion}.")
+            return
+        }
+        tracker.track(tracked.copy(pinned = true))
+        sender.sendSuccess("Pinned ${tracked.name} at v${tracked.installedVersion}. It will be skipped by /wpm update.")
+    }
+
+    fun unpinPlugin(sender: CommandSender, name: String) {
+        val tracked = tracker.getTracked(name)
+        if (tracked == null) {
+            sender.sendError("Plugin '$name' is not tracked by WPM.")
+            return
+        }
+        if (!tracked.pinned) {
+            sender.sendWarning("${tracked.name} is not pinned.")
+            return
+        }
+        tracker.track(tracked.copy(pinned = false))
+        sender.sendSuccess("Unpinned ${tracked.name}. It will now be updated by /wpm update.")
+    }
+
     fun removePlugin(sender: CommandSender, name: String) {
         val tracked = tracker.getTracked(name)
         if (tracked == null) {
@@ -373,6 +401,14 @@ class PluginInstallManager(private val plugin: WheroPluginManager) {
                 sync { sender.sendInfo("Checking ${plugins.size} plugin(s) for updates...") }
 
                 for (tracked in plugins) {
+                    if (tracked.pinned) {
+                        if (name != null) {
+                            sync { sender.sendWarning("${tracked.name} is pinned at v${tracked.installedVersion}. Use /wpm unpin ${tracked.name} to allow updates.") }
+                        } else {
+                            sync { sender.sendInfo("${tracked.name} is pinned at v${tracked.installedVersion}, skipping.") }
+                        }
+                        continue
+                    }
                     val latestVersion = when (tracked.source) {
                         "hangar" -> hangarClient.getLatestVersion(tracked.sourceIdentifier)
                         "github" -> {

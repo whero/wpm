@@ -19,6 +19,7 @@ WPM supports **Hangar** (PaperMC's official plugin repository), **GitHub Release
 - **Update** tracked plugins individually or all at once
 - **List** tracked plugins with live update availability checks
 - **Enable/disable** plugins by renaming their JAR (applied on next server restart)
+- **Pin/unpin** plugins to hold them at their current version and skip automatic updates
 - **Identify** untracked plugins already on your server and link them to Hangar, GitHub, or GeyserMC for future updates
 - **SHA256 verification** on downloads for integrity checking
 - Interactive clickable chat UI with hover tooltips
@@ -47,7 +48,9 @@ All commands are under `/wpm` (alias: `/pluginmanager`). Requires the `wpm.admin
 | `/wpm remove <name>` | Remove a tracked plugin |
 | `/wpm disable <name>` | Disable a plugin on next server restart |
 | `/wpm enable <name>` | Enable a previously disabled plugin on next server restart |
-| `/wpm update [name]` | Update one or all tracked plugins |
+| `/wpm pin <name>` | Pin a plugin at its current installed version (skipped by update) |
+| `/wpm unpin <name>` | Unpin a plugin so it is updated again |
+| `/wpm update [name]` | Update one or all tracked plugins (pinned plugins are skipped) |
 | `/wpm list` | List tracked plugins and check for updates |
 | `/wpm info <slug>` | Show detailed Hangar plugin info |
 | `/wpm identify` | Scan untracked plugins and match them to Hangar |

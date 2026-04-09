@@ -112,5 +112,6 @@ data class TrackedPlugin(
     val sourceIdentifier: String,
     val installedVersion: String,
     val fileName: String,
-    val installedAt: Long
+    val installedAt: Long,
+    val pinned: Boolean = false
 )
