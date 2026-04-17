@@ -6,7 +6,7 @@
 
 A lightweight in-game plugin manager for PaperMC servers. Search, install, update, and remove plugins directly from your server console or chat — no manual JAR downloads needed.
 
-WPM supports **Hangar** (PaperMC's official plugin repository), **GitHub Releases**, and the **GeyserMC Downloads API** as plugin sources.
+WPM supports **Hangar** (PaperMC's official plugin repository), **Modrinth**, **GitHub Releases**, and the **GeyserMC Downloads API** as plugin sources.
 
 ⚠️ This plugin is only created for my own use case and YMMV. Use at your own risk. ⚠️
 
@@ -14,13 +14,13 @@ WPM supports **Hangar** (PaperMC's official plugin repository), **GitHub Release
 
 ## Features
 
-- **Search** the Hangar repository without leaving the game
-- **Install** plugins from Hangar, GitHub Releases, or GeyserMC with a single command
+- **Search** the Hangar or Modrinth repositories without leaving the game
+- **Install** plugins from Hangar, Modrinth, GitHub Releases, or GeyserMC with a single command
 - **Update** tracked plugins individually or all at once
 - **List** tracked plugins with live update availability checks
 - **Enable/disable** plugins by renaming their JAR (applied on next server restart)
 - **Pin/unpin** plugins to hold them at their current version and skip automatic updates
-- **Identify** untracked plugins already on your server and link them to Hangar, GitHub, or GeyserMC for future updates
+- **Identify** untracked plugins already on your server and link them to Hangar, Modrinth, GitHub, or GeyserMC for future updates
 - **SHA256 verification** on downloads for integrity checking
 - Interactive clickable chat UI with hover tooltips
 
@@ -42,7 +42,9 @@ All commands are under `/wpm` (alias: `/pluginmanager`). Requires the `wpm.admin
 | Command | Description |
 |---|---|
 | `/wpm search <query>` | Search Hangar for plugins |
+| `/wpm search modrinth <query>` | Search Modrinth for plugins |
 | `/wpm install <slug>` | Install a plugin from Hangar |
+| `/wpm modrinth <slug>` | Install from Modrinth |
 | `/wpm github <owner/repo>` | Install from GitHub Releases |
 | `/wpm geyser <project>` | Install from GeyserMC (geyser, floodgate) |
 | `/wpm remove <name>` | Remove a tracked plugin |
@@ -54,7 +56,7 @@ All commands are under `/wpm` (alias: `/pluginmanager`). Requires the `wpm.admin
 | `/wpm list` | List tracked plugins and check for updates |
 | `/wpm info <slug>` | Show detailed Hangar plugin info |
 | `/wpm identify` | Scan untracked plugins and match them to Hangar |
-| `/wpm identify link <plugin> <source>` | Link an untracked plugin to a source (`hangar:slug`, `github:owner/repo`, or `geysermc:project`) |
+| `/wpm identify link <plugin> <source>` | Link an untracked plugin to a source (`hangar:slug`, `modrinth:slug`, `github:owner/repo`, or `geysermc:project`) |
 | `/wpm reload` | Reload the configuration |
 
 ## Usage
@@ -64,6 +66,13 @@ All commands are under `/wpm` (alias: `/pluginmanager`). Requires the `wpm.admin
 ```
 /wpm search ViaVersion
 /wpm install ViaVersion
+```
+
+Or from Modrinth:
+
+```
+/wpm search modrinth chunky
+/wpm modrinth chunky
 ```
 
 Or from GitHub:
@@ -93,6 +102,7 @@ This scans all loaded plugins, searches Hangar for matches, and lets you click t
 
 ```
 /wpm identify link ViaVersion hangar:ViaVersion
+/wpm identify link Chunky modrinth:chunky
 /wpm identify link SomePlugin github:owner/repo
 /wpm identify link Floodgate geysermc:floodgate
 ```
@@ -130,3 +140,7 @@ verify-hash: true
 ```
 
 The output JAR will be in `build/libs/`.
+
+## Credits
+
+- Modrinth plugin source support contributed by [@8BitBanana](https://github.com/8BitBanana) in [#1](https://github.com/whero/wpm/pull/1).
