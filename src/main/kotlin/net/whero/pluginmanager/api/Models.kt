@@ -104,6 +104,51 @@ data class GeyserDownload(
     val sha256: String
 )
 
+// ── Modrinth API Models ──
+
+data class ModrinthSearchResult(
+    val hits: List<ModrinthSearchHit>,
+    val offset: Int,
+    val limit: Int,
+    @com.google.gson.annotations.SerializedName("total_hits") val totalHits: Int
+)
+
+data class ModrinthSearchHit(
+    val slug: String,
+    val title: String,
+    val description: String,
+    val author: String,
+    val downloads: Int,
+    @com.google.gson.annotations.SerializedName("project_type") val projectType: String,
+    @com.google.gson.annotations.SerializedName("project_id") val projectId: String
+)
+
+data class ModrinthProject(
+    val slug: String,
+    val title: String,
+    val description: String,
+    val downloads: Int,
+    val followers: Int,
+    @com.google.gson.annotations.SerializedName("project_type") val projectType: String
+)
+
+data class ModrinthVersion(
+    val id: String,
+    @com.google.gson.annotations.SerializedName("version_number") val versionNumber: String,
+    val name: String?,
+    @com.google.gson.annotations.SerializedName("version_type") val versionType: String,
+    val loaders: List<String>,
+    val files: List<ModrinthFile>
+)
+
+data class ModrinthFile(
+    val hashes: Map<String, String>,
+    val url: String,
+    val filename: String,
+    val size: Long,
+    val primary: Boolean
+)
+
 // ── Internal Tracking ──
 
 data class TrackedPlugin(

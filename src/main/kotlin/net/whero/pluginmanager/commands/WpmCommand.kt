@@ -34,6 +34,7 @@ class WpmCommand(private val plugin: WheroPluginManager) : CommandExecutor {
             "install" -> handleInstall(sender, args)
             "github" -> handleGitHub(sender, args)
             "geyser" -> handleGeyser(sender, args)
+            "modrinth" -> handleModrinth(sender, args)
             "remove" -> handleRemove(sender, args)
             "disable" -> handleDisable(sender, args)
             "enable" -> handleEnable(sender, args)
@@ -55,23 +56,40 @@ class WpmCommand(private val plugin: WheroPluginManager) : CommandExecutor {
 
     private fun handleSearch(sender: CommandSender, args: Array<out String>) {
         if (args.size < 2) {
-            sender.sendError("Usage: /wpm search <query>")
+            sender.sendError("Usage: /wpm search [modrinth] <query>")
             return
         }
 
-        val query = args.drop(1).joinToString(" ")
+        val useModrinth = args[1].equals("modrinth", ignoreCase = true)
+        val query = if (useModrinth) {
+            if (args.size < 3) {
+                sender.sendError("Usage: /wpm search modrinth <query>")
+                return
+            }
+            args.drop(2).joinToString(" ")
+        } else {
+            args.drop(1).joinToString(" ")
+        }
         val maxResults = plugin.config.getInt("max-search-results", 10)
 
+        if (useModrinth) {
+            searchModrinth(sender, query, maxResults)
+        } else {
+            searchHangar(sender, query, maxResults)
+        }
+    }
+
+    private fun searchHangar(sender: CommandSender, query: String, maxResults: Int) {
         Bukkit.getScheduler().runTaskAsynchronously(plugin, Runnable {
             try {
                 val result = plugin.hangarClient.searchProjects(query, maxResults)
                 if (result == null || result.result.isEmpty()) {
-                    sync { sender.sendInfo("No results found for '$query'.") }
+                    sync { sender.sendInfo("No results found for '$query' on Hangar.") }
                     return@Runnable
                 }
 
                 sync {
-                    sender.sendInfo("Search results for '$query' (${result.result.size}/${result.pagination.count}):")
+                    sender.sendInfo("Hangar results for '$query' (${result.result.size}/${result.pagination.count}):")
                     sender.sendMessage(Component.empty())
 
                     for (project in result.result) {
@@ -108,6 +126,51 @@ class WpmCommand(private val plugin: WheroPluginManager) : CommandExecutor {
         })
     }
 
+    private fun searchModrinth(sender: CommandSender, query: String, maxResults: Int) {
+        Bukkit.getScheduler().runTaskAsynchronously(plugin, Runnable {
+            try {
+                val result = plugin.modrinthClient.searchProjects(query, maxResults)
+                if (result == null || result.hits.isEmpty()) {
+                    sync { sender.sendInfo("No results found for '$query' on Modrinth.") }
+                    return@Runnable
+                }
+
+                sync {
+                    sender.sendInfo("Modrinth results for '$query' (${result.hits.size}/${result.totalHits}):")
+                    sender.sendMessage(Component.empty())
+
+                    for (hit in result.hits) {
+                        var line = Component.text(" ● ", NamedTextColor.DARK_GRAY)
+                            .append(
+                                Component.text(hit.title, NamedTextColor.WHITE, TextDecoration.BOLD)
+                                    .hoverEvent(HoverEvent.showText(Component.text("Click to install", NamedTextColor.GREEN)))
+                                    .clickEvent(ClickEvent.suggestCommand("/wpm modrinth ${hit.slug}"))
+                            )
+
+                        if (!hit.slug.equals(hit.title, ignoreCase = true)) {
+                            line = line.append(Component.text(" (${hit.slug})", NamedTextColor.DARK_GRAY))
+                        }
+
+                        line = line
+                            .append(Component.text(" by ", NamedTextColor.GRAY))
+                            .append(Component.text(hit.author, NamedTextColor.AQUA))
+                            .append(Component.text(" ⬇${hit.downloads}", NamedTextColor.DARK_GRAY))
+
+                        sender.sendMessage(line)
+
+                        if (hit.description.isNotBlank()) {
+                            sender.sendMessage(
+                                Component.text("   ${hit.description}", NamedTextColor.GRAY)
+                            )
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                sync { sender.sendError("Search failed: ${e.message}") }
+            }
+        })
+    }
+
     private fun handleInstall(sender: CommandSender, args: Array<out String>) {
         if (args.size < 2) {
             sender.sendError("Usage: /wpm install <slug>")
@@ -130,6 +193,14 @@ class WpmCommand(private val plugin: WheroPluginManager) : CommandExecutor {
             return
         }
         plugin.installManager.installFromGeyserMc(sender, args[1])
+    }
+
+    private fun handleModrinth(sender: CommandSender, args: Array<out String>) {
+        if (args.size < 2) {
+            sender.sendError("Usage: /wpm modrinth <slug>")
+            return
+        }
+        plugin.installManager.installFromModrinth(sender, args[1])
     }
 
     private fun handleRemove(sender: CommandSender, args: Array<out String>) {
@@ -195,6 +266,7 @@ class WpmCommand(private val plugin: WheroPluginManager) : CommandExecutor {
                     "hangar" -> "Hangar"
                     "github" -> "GitHub"
                     "geysermc" -> "GeyserMC"
+                    "modrinth" -> "Modrinth"
                     else -> tp.source
                 }
 
@@ -210,6 +282,9 @@ class WpmCommand(private val plugin: WheroPluginManager) : CommandExecutor {
                         "geysermc" -> {
                             val build = plugin.geyserMcClient.getLatestBuild(tp.sourceIdentifier)
                             build?.let { "${it.version}-b${it.build}" }
+                        }
+                        "modrinth" -> {
+                            plugin.modrinthClient.getLatestVersion(tp.sourceIdentifier)?.versionNumber
                         }
                         else -> null
                     }
@@ -375,7 +450,7 @@ class WpmCommand(private val plugin: WheroPluginManager) : CommandExecutor {
                             val noMatch = Component.text("   ✘ No match found  ", NamedTextColor.RED)
                                 .append(
                                     Component.text("[Link manually]", NamedTextColor.YELLOW)
-                                        .hoverEvent(HoverEvent.showText(Component.text("hangar:slug, github:owner/repo, or geysermc:project", NamedTextColor.YELLOW)))
+                                        .hoverEvent(HoverEvent.showText(Component.text("hangar:slug, github:owner/repo, geysermc:project, or modrinth:slug", NamedTextColor.YELLOW)))
                                         .clickEvent(ClickEvent.suggestCommand("/wpm identify link $pluginName "))
                                 )
                             sender.sendMessage(noMatch)
@@ -421,7 +496,7 @@ class WpmCommand(private val plugin: WheroPluginManager) : CommandExecutor {
                             val noMatch = Component.text("   ✘ No match found  ", NamedTextColor.RED)
                                 .append(
                                     Component.text("[Link manually]", NamedTextColor.YELLOW)
-                                        .hoverEvent(HoverEvent.showText(Component.text("hangar:slug, github:owner/repo, or geysermc:project", NamedTextColor.YELLOW)))
+                                        .hoverEvent(HoverEvent.showText(Component.text("hangar:slug, github:owner/repo, geysermc:project, or modrinth:slug", NamedTextColor.YELLOW)))
                                         .clickEvent(ClickEvent.suggestCommand("/wpm identify link $pluginName "))
                                 )
                             sender.sendMessage(noMatch)
@@ -443,7 +518,7 @@ class WpmCommand(private val plugin: WheroPluginManager) : CommandExecutor {
     private fun handleIdentifyLink(sender: CommandSender, args: Array<out String>) {
         // /wpm identify link <plugin> <hangar:slug|github:owner/repo|geysermc:project>
         if (args.size < 4) {
-            sender.sendError("Usage: /wpm identify link <plugin> <hangar:slug|github:owner/repo|geysermc:project>")
+            sender.sendError("Usage: /wpm identify link <plugin> <hangar:slug|github:owner/repo|geysermc:project|modrinth:slug>")
             return
         }
 
@@ -487,8 +562,12 @@ class WpmCommand(private val plugin: WheroPluginManager) : CommandExecutor {
                     return
                 }
             }
+            sourceArg.startsWith("modrinth:", ignoreCase = true) -> {
+                source = "modrinth"
+                sourceIdentifier = sourceArg.substringAfter(":")
+            }
             else -> {
-                sender.sendError("Source must start with hangar:, github:, or geysermc: (e.g. hangar:EssentialsX, github:owner/repo, geysermc:floodgate)")
+                sender.sendError("Source must start with hangar:, github:, geysermc:, or modrinth: (e.g. hangar:EssentialsX, modrinth:chunky)")
                 return
             }
         }
@@ -527,6 +606,13 @@ class WpmCommand(private val plugin: WheroPluginManager) : CommandExecutor {
                         val build = plugin.geyserMcClient.getLatestBuild(sourceIdentifier)
                         if (build == null) {
                             sync { sender.sendError("GeyserMC project '$sourceIdentifier' not found.") }
+                            return@Runnable
+                        }
+                    }
+                    "modrinth" -> {
+                        val project = plugin.modrinthClient.getProject(sourceIdentifier)
+                        if (project == null) {
+                            sync { sender.sendError("Modrinth project '$sourceIdentifier' not found.") }
                             return@Runnable
                         }
                     }
@@ -575,7 +661,7 @@ class WpmCommand(private val plugin: WheroPluginManager) : CommandExecutor {
 
     private fun handleRelink(sender: CommandSender, args: Array<out String>) {
         if (args.size < 3) {
-            sender.sendError("Usage: /wpm relink <name> <hangar:slug|github:owner/repo|geysermc:project>")
+            sender.sendError("Usage: /wpm relink <name> <hangar:slug|github:owner/repo|geysermc:project|modrinth:slug>")
             return
         }
 
@@ -612,8 +698,12 @@ class WpmCommand(private val plugin: WheroPluginManager) : CommandExecutor {
                     return
                 }
             }
+            sourceArg.startsWith("modrinth:", ignoreCase = true) -> {
+                source = "modrinth"
+                sourceIdentifier = sourceArg.substringAfter(":")
+            }
             else -> {
-                sender.sendError("Source must start with hangar:, github:, or geysermc:")
+                sender.sendError("Source must start with hangar:, github:, geysermc:, or modrinth:")
                 return
             }
         }
@@ -641,6 +731,13 @@ class WpmCommand(private val plugin: WheroPluginManager) : CommandExecutor {
                         val build = plugin.geyserMcClient.getLatestBuild(sourceIdentifier)
                         if (build == null) {
                             sync { sender.sendError("GeyserMC project '$sourceIdentifier' not found.") }
+                            return@Runnable
+                        }
+                    }
+                    "modrinth" -> {
+                        val project = plugin.modrinthClient.getProject(sourceIdentifier)
+                        if (project == null) {
+                            sync { sender.sendError("Modrinth project '$sourceIdentifier' not found.") }
                             return@Runnable
                         }
                     }
@@ -725,9 +822,11 @@ class WpmCommand(private val plugin: WheroPluginManager) : CommandExecutor {
 
         val commands = listOf(
             "/wpm search <query>" to "Search Hangar for plugins",
+            "/wpm search modrinth <query>" to "Search Modrinth for plugins",
             "/wpm install <slug>" to "Install plugin from Hangar",
             "/wpm github <owner/repo>" to "Install from GitHub Releases",
             "/wpm geyser <project>" to "Install from GeyserMC Downloads",
+            "/wpm modrinth <slug>" to "Install from Modrinth",
             "/wpm remove <name>" to "Remove an installed plugin",
             "/wpm disable <name>" to "Disable a plugin on next reload",
             "/wpm enable <name>" to "Enable a disabled plugin on next reload",

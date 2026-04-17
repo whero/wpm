@@ -3,6 +3,7 @@ package net.whero.pluginmanager
 import net.whero.pluginmanager.api.GeyserMcClient
 import net.whero.pluginmanager.api.GitHubClient
 import net.whero.pluginmanager.api.HangarClient
+import net.whero.pluginmanager.api.ModrinthClient
 import net.whero.pluginmanager.commands.WpmCommand
 import net.whero.pluginmanager.commands.WpmTabCompleter
 import net.whero.pluginmanager.managers.PluginInstallManager
@@ -17,6 +18,8 @@ class WheroPluginManager : JavaPlugin() {
         private set
     lateinit var geyserMcClient: GeyserMcClient
         private set
+    lateinit var modrinthClient: ModrinthClient
+        private set
     lateinit var pluginTracker: PluginTracker
         private set
     lateinit var installManager: PluginInstallManager
@@ -28,6 +31,7 @@ class WheroPluginManager : JavaPlugin() {
         hangarClient = HangarClient(logger)
         gitHubClient = GitHubClient()
         geyserMcClient = GeyserMcClient(logger)
+        modrinthClient = ModrinthClient(logger)
         pluginTracker = PluginTracker(dataFolder)
         installManager = PluginInstallManager(this)
 
