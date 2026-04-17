@@ -8,7 +8,7 @@ import org.bukkit.command.TabCompleter
 
 class WpmTabCompleter(private val plugin: WheroPluginManager) : TabCompleter {
 
-    private val subcommands = listOf("search", "install", "github", "geyser", "remove", "disable", "enable", "pin", "unpin", "update", "list", "info", "identify", "rollback", "unlink", "relink", "reload")
+    private val subcommands = listOf("search", "install", "github", "geyser", "modrinth", "remove", "disable", "enable", "pin", "unpin", "update", "list", "info", "identify", "rollback", "unlink", "relink", "reload")
 
     override fun onTabComplete(
         sender: CommandSender,
@@ -30,6 +30,9 @@ class WpmTabCompleter(private val plugin: WheroPluginManager) : TabCompleter {
                     net.whero.pluginmanager.api.GeyserMcClient.SUPPORTED_PROJECTS.toList()
                         .filter { it.startsWith(args[1].lowercase()) }
                 }
+                "search" -> {
+                    listOf("modrinth").filter { it.startsWith(args[1].lowercase()) }
+                }
                 "identify" -> {
                     listOf("link").filter { it.startsWith(args[1].lowercase()) }
                 }
@@ -47,7 +50,7 @@ class WpmTabCompleter(private val plugin: WheroPluginManager) : TabCompleter {
         }
 
         if (args[0].equals("relink", ignoreCase = true) && args.size == 3) {
-            return listOf("hangar:", "github:", "geysermc:")
+            return listOf("hangar:", "github:", "geysermc:", "modrinth:")
                 .filter { it.startsWith(args[2].lowercase()) }
         }
 
@@ -60,7 +63,7 @@ class WpmTabCompleter(private val plugin: WheroPluginManager) : TabCompleter {
                     .filter { it.lowercase().startsWith(args[2].lowercase()) }
             }
             if (args.size == 4) {
-                return listOf("hangar:", "github:", "geysermc:")
+                return listOf("hangar:", "github:", "geysermc:", "modrinth:")
                     .filter { it.startsWith(args[3].lowercase()) }
             }
         }

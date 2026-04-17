@@ -17,6 +17,7 @@ class PluginInstallManager(private val plugin: WheroPluginManager) {
     private val hangarClient get() = plugin.hangarClient
     private val gitHubClient get() = plugin.gitHubClient
     private val geyserMcClient get() = plugin.geyserMcClient
+    private val modrinthClient get() = plugin.modrinthClient
     private val tracker get() = plugin.pluginTracker
     private val pluginsDir = plugin.server.pluginsFolder
     private val backupsDir = File(plugin.dataFolder, "backups")
@@ -221,6 +222,75 @@ class PluginInstallManager(private val plugin: WheroPluginManager) {
         }
     }
 
+    fun installFromModrinth(sender: CommandSender, slugOrId: String) {
+        async {
+            try {
+                sender.sendInfo("Fetching latest version for $slugOrId from Modrinth...")
+
+                val project = modrinthClient.getProject(slugOrId)
+                if (project == null) {
+                    sync { sender.sendError("Plugin '$slugOrId' not found on Modrinth.") }
+                    return@async
+                }
+
+                val version = modrinthClient.getLatestVersion(slugOrId)
+                if (version == null) {
+                    sync { sender.sendError("No compatible version found for '$slugOrId' on Modrinth.") }
+                    return@async
+                }
+
+                val fileName = modrinthClient.getFileName(version)
+                val targetFile = File(pluginsDir, fileName)
+
+                if (targetFile.exists()) {
+                    sync { sender.sendWarning("File $fileName already exists. Remove it first.") }
+                    return@async
+                }
+
+                sender.sendInfo("Downloading ${project.title} v${version.versionNumber}...")
+
+                val success = modrinthClient.downloadPlugin(version, targetFile)
+                if (!success) {
+                    sync { sender.sendError("Failed to download ${project.title}.") }
+                    return@async
+                }
+
+                // Verify hash if enabled
+                if (plugin.config.getBoolean("verify-hash", true)) {
+                    val expectedHash = modrinthClient.getFileHash(version)
+                    if (expectedHash != null) {
+                        val actualHash = sha256(targetFile)
+                        if (!actualHash.equals(expectedHash, ignoreCase = true)) {
+                            targetFile.delete()
+                            sync { sender.sendError("SHA256 hash mismatch! Download deleted for safety.") }
+                            return@async
+                        }
+                    }
+                }
+
+                tracker.track(
+                    TrackedPlugin(
+                        name = project.slug,
+                        source = "modrinth",
+                        sourceIdentifier = project.slug,
+                        installedVersion = version.versionNumber,
+                        fileName = fileName,
+                        installedAt = System.currentTimeMillis()
+                    )
+                )
+
+                sync {
+                    sender.sendSuccess("Installed ${project.title} v${version.versionNumber}. Restart the server to load it.")
+                }
+            } catch (e: RateLimitException) {
+                sync { sender.sendError(e.message ?: "Rate limit exceeded.") }
+            } catch (e: Exception) {
+                sync { sender.sendError("Error installing $slugOrId: ${e.message}") }
+                plugin.logger.warning("Error installing $slugOrId from Modrinth: ${e.stackTraceToString()}")
+            }
+        }
+    }
+
     fun disablePlugin(sender: CommandSender, name: String) {
         val tracked = tracker.getTracked(name)
         val currentFileName: String
@@ -421,6 +491,9 @@ class PluginInstallManager(private val plugin: WheroPluginManager) {
                             val build = geyserMcClient.getLatestBuild(tracked.sourceIdentifier)
                             build?.let { "${it.version}-b${it.build}" }
                         }
+                        "modrinth" -> {
+                            modrinthClient.getLatestVersion(tracked.sourceIdentifier)?.versionNumber
+                        }
                         else -> null
                     }
 
@@ -500,6 +573,26 @@ class PluginInstallManager(private val plugin: WheroPluginManager) {
                                 }
                             } else {
                                 sync { sender.sendError("No Spigot download available for ${tracked.name}.") }
+                            }
+                        }
+                        "modrinth" -> {
+                            val version = modrinthClient.getLatestVersion(tracked.sourceIdentifier)
+                            if (version != null) {
+                                val newFileName = modrinthClient.getFileName(version)
+                                val targetFile = File(pluginsDir, newFileName)
+                                val success = modrinthClient.downloadPlugin(version, targetFile)
+                                if (success) {
+                                    tracker.track(tracked.copy(
+                                        installedVersion = latestVersion,
+                                        fileName = newFileName,
+                                        installedAt = System.currentTimeMillis()
+                                    ))
+                                    sync { sender.sendSuccess("Updated ${tracked.name} to $latestVersion.") }
+                                } else {
+                                    sync { sender.sendError("Failed to download update for ${tracked.name}.") }
+                                }
+                            } else {
+                                sync { sender.sendError("No compatible version found for ${tracked.name} on Modrinth.") }
                             }
                         }
                     }
