@@ -1,5 +1,5 @@
-[![PaperMC](https://img.shields.io/badge/PaperMC-1.21.1-blue)](https://papermc.io/)
-[![Java](https://img.shields.io/badge/Java-21-orange)](https://openjdk.org/)
+[![PaperMC](https://img.shields.io/badge/PaperMC-26.2-blue)](https://papermc.io/)
+[![Java](https://img.shields.io/badge/Java-25-orange)](https://openjdk.org/)
 [![License](https://img.shields.io/badge/License-GPL2-green)](LICENSE)
 
 # Whero Plugin Manager (WPM)
@@ -26,8 +26,11 @@ WPM supports **Hangar** (PaperMC's official plugin repository), **Modrinth**, **
 
 ## Requirements
 
-- Paper 1.21+ (or any fork based on it, e.g. Purpur)
-- Java 21+
+- Paper 26.1+ (Minecraft 26.x; or any fork based on it, e.g. Purpur)
+- Java 25+
+
+> **Legacy servers:** WPM 2.0.0+ requires Minecraft 26.x and Java 25. On older
+> servers (Paper 1.21.x / Java 21), use version **1.0.6** instead.
 
 ## Installation
 

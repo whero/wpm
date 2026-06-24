@@ -300,7 +300,7 @@ class WpmCommand(private val plugin: WheroPluginManager) : CommandExecutor {
                 sync {
                     var line = Component.text(" ● ", NamedTextColor.DARK_GRAY)
                         .append(Component.text(tp.name, NamedTextColor.WHITE, TextDecoration.BOLD))
-                        .append(Component.text(" v${tp.installedVersion}", NamedTextColor.GREEN))
+                        .append(Component.text(" ${tp.installedVersion}", NamedTextColor.GREEN))
                         .append(Component.text(" ($sourceLabel: ${tp.sourceIdentifier})", NamedTextColor.GRAY))
 
                     if (isDisabled) {
