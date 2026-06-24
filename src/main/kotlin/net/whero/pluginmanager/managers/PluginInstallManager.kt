@@ -26,18 +26,25 @@ class PluginInstallManager(private val plugin: WheroPluginManager) {
         private const val MAX_BACKUPS = 5
     }
 
-    fun installFromHangar(sender: CommandSender, slug: String) {
+    fun installFromHangar(sender: CommandSender, slug: String, requestedVersion: String? = null) {
         async {
             try {
-                sender.sendInfo("Fetching latest version for $slug...")
-
-                val versionName = hangarClient.getLatestVersion(slug)
-                if (versionName == null) {
-                    sync { sender.sendError("Plugin '$slug' not found on Hangar.") }
-                    return@async
+                val versionName = if (requestedVersion != null) {
+                    sender.sendInfo("Fetching $slug v$requestedVersion...")
+                    requestedVersion
+                } else {
+                    sender.sendInfo("Fetching latest version for $slug...")
+                    hangarClient.getLatestVersion(slug) ?: run {
+                        sync { sender.sendError("Plugin '$slug' not found on Hangar.") }
+                        return@async
+                    }
                 }
 
                 val version = hangarClient.getVersion(slug, versionName)
+                if (requestedVersion != null && version == null) {
+                    sync { sender.sendError("Version '$requestedVersion' not found for $slug on Hangar.") }
+                    return@async
+                }
                 val download = version?.downloads?.get("PAPER")
                 val fileName = download?.fileInfo?.name ?: "$slug-$versionName.jar"
                 val targetFile = File(pluginsDir, fileName)
@@ -91,7 +98,7 @@ class PluginInstallManager(private val plugin: WheroPluginManager) {
         }
     }
 
-    fun installFromGitHub(sender: CommandSender, ownerRepo: String) {
+    fun installFromGitHub(sender: CommandSender, ownerRepo: String, requestedVersion: String? = null) {
         val parts = ownerRepo.split("/", limit = 2)
         if (parts.size != 2) {
             sender.sendError("Invalid format. Use: /wpm github <owner/repo>")
@@ -101,12 +108,18 @@ class PluginInstallManager(private val plugin: WheroPluginManager) {
 
         async {
             try {
-                sender.sendInfo("Fetching latest release for $ownerRepo...")
-
-                val release = gitHubClient.getLatestRelease(owner, repo)
-                if (release == null) {
-                    sync { sender.sendError("No releases found for $ownerRepo.") }
-                    return@async
+                val release = if (requestedVersion != null) {
+                    sender.sendInfo("Fetching $ownerRepo release $requestedVersion...")
+                    gitHubClient.getReleaseByTag(owner, repo, requestedVersion) ?: run {
+                        sync { sender.sendError("Release '$requestedVersion' not found for $ownerRepo.") }
+                        return@async
+                    }
+                } else {
+                    sender.sendInfo("Fetching latest release for $ownerRepo...")
+                    gitHubClient.getLatestRelease(owner, repo) ?: run {
+                        sync { sender.sendError("No releases found for $ownerRepo.") }
+                        return@async
+                    }
                 }
 
                 val asset = gitHubClient.findJarAsset(release, repo)
@@ -222,10 +235,10 @@ class PluginInstallManager(private val plugin: WheroPluginManager) {
         }
     }
 
-    fun installFromModrinth(sender: CommandSender, slugOrId: String) {
+    fun installFromModrinth(sender: CommandSender, slugOrId: String, requestedVersion: String? = null) {
         async {
             try {
-                sender.sendInfo("Fetching latest version for $slugOrId from Modrinth...")
+                sender.sendInfo("Fetching ${requestedVersion?.let { "v$it" } ?: "latest version"} for $slugOrId from Modrinth...")
 
                 val project = modrinthClient.getProject(slugOrId)
                 if (project == null) {
@@ -233,10 +246,16 @@ class PluginInstallManager(private val plugin: WheroPluginManager) {
                     return@async
                 }
 
-                val version = modrinthClient.getLatestVersion(slugOrId)
-                if (version == null) {
-                    sync { sender.sendError("No compatible version found for '$slugOrId' on Modrinth.") }
-                    return@async
+                val version = if (requestedVersion != null) {
+                    modrinthClient.getVersionByNumber(slugOrId, requestedVersion) ?: run {
+                        sync { sender.sendError("Version '$requestedVersion' not found for '$slugOrId' on Modrinth.") }
+                        return@async
+                    }
+                } else {
+                    modrinthClient.getLatestVersion(slugOrId) ?: run {
+                        sync { sender.sendError("No compatible version found for '$slugOrId' on Modrinth.") }
+                        return@async
+                    }
                 }
 
                 val fileName = modrinthClient.getFileName(version)

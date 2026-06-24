@@ -71,6 +71,14 @@ class HangarClient(private val logger: Logger) {
         return gson.fromJson(response, HangarVersion::class.java)
     }
 
+    /** Most recent PAPER versions, newest first. */
+    fun listVersions(slug: String, limit: Int = 10): List<String> {
+        val response = get("$BASE_URL/projects/$slug/versions?limit=$limit&offset=0&platform=PAPER")
+            ?: return emptyList()
+        val result = gson.fromJson(response, HangarVersionsResult::class.java)
+        return result.result.map { it.name }
+    }
+
     fun downloadPlugin(slug: String, version: String, targetFile: File): Boolean {
         val url = "$BASE_URL/projects/$slug/versions/$version/PAPER/download"
         return downloadFile(url, targetFile.toPath())

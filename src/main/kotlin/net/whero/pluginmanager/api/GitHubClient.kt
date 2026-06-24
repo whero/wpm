@@ -1,6 +1,7 @@
 package net.whero.pluginmanager.api
 
 import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
 import java.io.File
 import java.net.URI
 import java.net.http.HttpClient
@@ -22,7 +23,22 @@ class GitHubClient {
     }
 
     fun getLatestRelease(owner: String, repo: String): GitHubRelease? {
-        val url = "$BASE_URL/repos/$owner/$repo/releases/latest"
+        val body = get("$BASE_URL/repos/$owner/$repo/releases/latest") ?: return null
+        return gson.fromJson(body, GitHubRelease::class.java)
+    }
+
+    fun getReleaseByTag(owner: String, repo: String, tag: String): GitHubRelease? {
+        val body = get("$BASE_URL/repos/$owner/$repo/releases/tags/$tag") ?: return null
+        return gson.fromJson(body, GitHubRelease::class.java)
+    }
+
+    /** Most recent releases (including pre-releases), newest first. */
+    fun listReleases(owner: String, repo: String, limit: Int = 10): List<GitHubRelease> {
+        val body = get("$BASE_URL/repos/$owner/$repo/releases?per_page=$limit") ?: return emptyList()
+        return gson.fromJson(body, object : TypeToken<List<GitHubRelease>>() {}.type)
+    }
+
+    private fun get(url: String): String? {
         val request = HttpRequest.newBuilder()
             .uri(URI.create(url))
             .header("User-Agent", "WheroPluginManager")
@@ -34,7 +50,7 @@ class GitHubClient {
         val response = httpClient.send(request, HttpResponse.BodyHandlers.ofString())
 
         return when (response.statusCode()) {
-            200 -> gson.fromJson(response.body(), GitHubRelease::class.java)
+            200 -> response.body()
             403, 429 -> throw RateLimitException("GitHub rate limit exceeded. Try again later.")
             else -> null
         }

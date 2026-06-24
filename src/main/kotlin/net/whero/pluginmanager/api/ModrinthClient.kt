@@ -48,16 +48,21 @@ class ModrinthClient(private val logger: Logger) {
         return gson.fromJson(response, ModrinthProject::class.java)
     }
 
-    fun getLatestVersion(slugOrId: String): ModrinthVersion? {
+    /** Compatible versions for plugin loaders, newest first. */
+    fun listVersions(slugOrId: String): List<ModrinthVersion> {
         val loaders = URLEncoder.encode("[\"paper\",\"bukkit\",\"spigot\"]", Charsets.UTF_8)
-        val response = get("$BASE_URL/project/$slugOrId/version?loaders=$loaders") ?: return null
-        val versions: List<ModrinthVersion> = gson.fromJson(
-            response,
-            object : TypeToken<List<ModrinthVersion>>() {}.type
-        )
+        val response = get("$BASE_URL/project/$slugOrId/version?loaders=$loaders") ?: return emptyList()
+        return gson.fromJson(response, object : TypeToken<List<ModrinthVersion>>() {}.type)
+    }
+
+    fun getLatestVersion(slugOrId: String): ModrinthVersion? {
+        val versions = listVersions(slugOrId)
         // Prefer release channel, fall back to any
         return versions.firstOrNull { it.versionType == "release" } ?: versions.firstOrNull()
     }
+
+    fun getVersionByNumber(slugOrId: String, versionNumber: String): ModrinthVersion? =
+        listVersions(slugOrId).firstOrNull { it.versionNumber.equals(versionNumber, ignoreCase = true) }
 
     fun getVersion(versionId: String): ModrinthVersion? {
         val response = get("$BASE_URL/version/$versionId") ?: return null

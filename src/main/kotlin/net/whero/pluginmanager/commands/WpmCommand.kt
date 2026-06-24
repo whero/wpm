@@ -173,18 +173,39 @@ class WpmCommand(private val plugin: WheroPluginManager) : CommandExecutor {
 
     private fun handleInstall(sender: CommandSender, args: Array<out String>) {
         if (args.size < 2) {
-            sender.sendError("Usage: /wpm install <slug>")
+            sender.sendError("Usage: /wpm install <slug> [version]")
             return
         }
-        plugin.installManager.installFromHangar(sender, args[1])
+        val slug = args[1]
+        val version = explicitVersion(args, 2)
+        if (version != null) {
+            plugin.installManager.installFromHangar(sender, slug, version)
+        } else {
+            showVersionPicker(sender, "Hangar", slug, "/wpm install $slug") {
+                plugin.hangarClient.listVersions(slug)
+            }
+        }
     }
 
     private fun handleGitHub(sender: CommandSender, args: Array<out String>) {
         if (args.size < 2) {
-            sender.sendError("Usage: /wpm github <owner/repo>")
+            sender.sendError("Usage: /wpm github <owner/repo> [version]")
             return
         }
-        plugin.installManager.installFromGitHub(sender, args[1])
+        val ownerRepo = args[1]
+        val version = explicitVersion(args, 2)
+        if (version != null) {
+            plugin.installManager.installFromGitHub(sender, ownerRepo, version)
+        } else {
+            val parts = ownerRepo.split("/", limit = 2)
+            if (parts.size != 2) {
+                sender.sendError("Invalid format. Use: /wpm github <owner/repo> [version]")
+                return
+            }
+            showVersionPicker(sender, "GitHub", ownerRepo, "/wpm github $ownerRepo") {
+                plugin.gitHubClient.listReleases(parts[0], parts[1]).map { it.tagName }
+            }
+        }
     }
 
     private fun handleGeyser(sender: CommandSender, args: Array<out String>) {
@@ -192,15 +213,82 @@ class WpmCommand(private val plugin: WheroPluginManager) : CommandExecutor {
             sender.sendError("Usage: /wpm geyser <geyser|floodgate>")
             return
         }
+        if (args.size >= 3) {
+            sender.sendInfo("GeyserMC is always installed at the latest build; ignoring version '${args[2]}'.")
+        }
         plugin.installManager.installFromGeyserMc(sender, args[1])
     }
 
     private fun handleModrinth(sender: CommandSender, args: Array<out String>) {
         if (args.size < 2) {
-            sender.sendError("Usage: /wpm modrinth <slug>")
+            sender.sendError("Usage: /wpm modrinth <slug> [version]")
             return
         }
-        plugin.installManager.installFromModrinth(sender, args[1])
+        val slug = args[1]
+        val version = explicitVersion(args, 2)
+        if (version != null) {
+            plugin.installManager.installFromModrinth(sender, slug, version)
+        } else {
+            showVersionPicker(sender, "Modrinth", slug, "/wpm modrinth $slug") {
+                plugin.modrinthClient.listVersions(slug).map { it.versionNumber }
+            }
+        }
+    }
+
+    /** Returns the version argument at [index], or null if absent or the literal "latest". */
+    private fun explicitVersion(args: Array<out String>, index: Int): String? {
+        val v = args.getOrNull(index) ?: return null
+        return if (v.equals("latest", ignoreCase = true)) null else v
+    }
+
+    /**
+     * Fetches available versions off-thread and shows a clickable picker. Clicking a version
+     * runs "<installCommand> <version>"; the newest version is also offered as "Install latest".
+     */
+    private fun showVersionPicker(
+        sender: CommandSender,
+        sourceLabel: String,
+        name: String,
+        installCommand: String,
+        fetchVersions: () -> List<String>
+    ) {
+        Bukkit.getScheduler().runTaskAsynchronously(plugin, Runnable {
+            try {
+                val versions = fetchVersions()
+                if (versions.isEmpty()) {
+                    sync { sender.sendError("No versions found for '$name' on $sourceLabel.") }
+                    return@Runnable
+                }
+
+                sync {
+                    sender.sendInfo("Available versions for $name ($sourceLabel):")
+                    sender.sendMessage(Component.empty())
+
+                    for ((index, version) in versions.withIndex()) {
+                        var line = Component.text(" ● ", NamedTextColor.DARK_GRAY)
+                            .append(Component.text(version, NamedTextColor.WHITE))
+                        if (index == 0) {
+                            line = line.append(Component.text(" (latest)", NamedTextColor.GREEN))
+                        }
+                        line = line
+                            .append(Component.text("  "))
+                            .append(
+                                Component.text("[Install]", NamedTextColor.GREEN, TextDecoration.BOLD)
+                                    .hoverEvent(HoverEvent.showText(Component.text("Install $name $version", NamedTextColor.GREEN)))
+                                    .clickEvent(ClickEvent.runCommand("$installCommand $version"))
+                            )
+                        sender.sendMessage(line)
+                    }
+
+                    sender.sendMessage(Component.empty())
+                    sender.sendInfo("Showing ${versions.size} most recent. Or run: $installCommand <version>")
+                }
+            } catch (e: RateLimitException) {
+                sync { sender.sendError(e.message ?: "Rate limit exceeded.") }
+            } catch (e: Exception) {
+                sync { sender.sendError("Failed to fetch versions for $name: ${e.message}") }
+            }
+        })
     }
 
     private fun handleRemove(sender: CommandSender, args: Array<out String>) {
@@ -823,10 +911,10 @@ class WpmCommand(private val plugin: WheroPluginManager) : CommandExecutor {
         val commands = listOf(
             "/wpm search <query>" to "Search Hangar for plugins",
             "/wpm search modrinth <query>" to "Search Modrinth for plugins",
-            "/wpm install <slug>" to "Install plugin from Hangar",
-            "/wpm github <owner/repo>" to "Install from GitHub Releases",
-            "/wpm geyser <project>" to "Install from GeyserMC Downloads",
-            "/wpm modrinth <slug>" to "Install from Modrinth",
+            "/wpm install <slug> [version]" to "Install from Hangar (lists versions if omitted)",
+            "/wpm github <owner/repo> [version]" to "Install from GitHub Releases",
+            "/wpm geyser <project>" to "Install from GeyserMC Downloads (always latest)",
+            "/wpm modrinth <slug> [version]" to "Install from Modrinth",
             "/wpm remove <name>" to "Remove an installed plugin",
             "/wpm disable <name>" to "Disable a plugin on next reload",
             "/wpm enable <name>" to "Enable a disabled plugin on next reload",

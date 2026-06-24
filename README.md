@@ -46,10 +46,10 @@ All commands are under `/wpm` (alias: `/pluginmanager`). Requires the `wpm.admin
 |---|---|
 | `/wpm search <query>` | Search Hangar for plugins |
 | `/wpm search modrinth <query>` | Search Modrinth for plugins |
-| `/wpm install <slug>` | Install a plugin from Hangar |
-| `/wpm modrinth <slug>` | Install from Modrinth |
-| `/wpm github <owner/repo>` | Install from GitHub Releases |
-| `/wpm geyser <project>` | Install from GeyserMC (geyser, floodgate) |
+| `/wpm install <slug> [version]` | Install from Hangar (lists versions to pick from if omitted) |
+| `/wpm modrinth <slug> [version]` | Install from Modrinth (lists versions if omitted) |
+| `/wpm github <owner/repo> [version]` | Install from GitHub Releases (lists releases if omitted) |
+| `/wpm geyser <project>` | Install from GeyserMC (geyser, floodgate) — always the latest build |
 | `/wpm remove <name>` | Remove a tracked plugin |
 | `/wpm disable <name>` | Disable a plugin on next server restart |
 | `/wpm enable <name>` | Enable a previously disabled plugin on next server restart |
@@ -83,6 +83,26 @@ Or from GitHub:
 ```
 /wpm github ViaVersion/ViaVersion
 ```
+
+#### Installing a specific version
+
+Running an install command without a version lists the most recent versions with
+clickable `[Install]` buttons, so you can pick the build that matches your server
+(handy when "latest" targets a different Minecraft version than you need):
+
+```
+/wpm modrinth axiom-paper-plugin
+```
+
+Or install a specific version directly:
+
+```
+/wpm modrinth axiom-paper-plugin 5.0.4+26.1
+/wpm install ViaVersion 5.4.0
+/wpm github ViaVersion/ViaVersion 5.4.0
+```
+
+GeyserMC always installs the latest build, so it takes no version argument.
 
 For Geyser/Floodgate, use the dedicated GeyserMC source for proper build tracking:
 
