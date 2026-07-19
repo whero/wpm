@@ -275,7 +275,7 @@ class WpmCommand(private val plugin: WheroPluginManager) : CommandExecutor {
                             .append(
                                 Component.text("[Install]", NamedTextColor.GREEN, TextDecoration.BOLD)
                                     .hoverEvent(HoverEvent.showText(Component.text("Install $name $version", NamedTextColor.GREEN)))
-                                    .clickEvent(ClickEvent.runCommand("$installCommand $version"))
+                                    .clickEvent(ClickEvent.suggestCommand("$installCommand $version"))
                             )
                         sender.sendMessage(line)
                     }

@@ -6,5 +6,5 @@ prefix: "<gradient:#5e4fa2:#f79459>WPM</gradient> <dark_gray>»</dark_gray>"
 # Maximum number of results to show in search
 max-search-results: 10
 
-# Verify SHA256 hash when downloading from Hangar
+# Verify SHA256 hash when downloading plugins and updates
 verify-hash: true

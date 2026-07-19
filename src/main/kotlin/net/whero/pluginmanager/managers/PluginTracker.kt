@@ -4,9 +4,11 @@ import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import com.google.gson.reflect.TypeToken
 import net.whero.pluginmanager.api.TrackedPlugin
+import net.whero.pluginmanager.util.FileUtils
 import java.io.File
+import java.util.logging.Logger
 
-class PluginTracker(private val dataFolder: File) {
+class PluginTracker(private val dataFolder: File, private val logger: Logger) {
 
     private val gson: Gson = GsonBuilder().setPrettyPrinting().create()
     private val trackingFile = File(dataFolder, "installed-plugins.json")
@@ -45,9 +47,21 @@ class PluginTracker(private val dataFolder: File) {
         if (json.isBlank()) return
 
         val type = object : TypeToken<List<TrackedPlugin>>() {}.type
-        val list: List<TrackedPlugin> = gson.fromJson(json, type) ?: return
+        val list: List<TrackedPlugin> = try {
+            gson.fromJson(json, type) ?: return
+        } catch (e: Exception) {
+            logger.warning("Could not parse installed-plugins.json (${e.message}); starting with empty tracking data.")
+            return
+        }
         tracked.clear()
-        list.forEach { tracked[it.name.lowercase()] = it }
+        for (entry in list) {
+            // Tracking data drives file operations; drop entries with unsafe file names
+            if (!FileUtils.isPlainFileName(entry.fileName)) {
+                logger.warning("Ignoring tracked plugin '${entry.name}': unsafe fileName '${entry.fileName}' in installed-plugins.json")
+                continue
+            }
+            tracked[entry.name.lowercase()] = entry
+        }
     }
 
     private fun save() {

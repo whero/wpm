@@ -8,6 +8,7 @@ import java.net.URLEncoder
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
+import java.nio.file.Files
 import java.nio.file.Path
 import java.time.Duration
 import java.util.logging.Logger
@@ -116,6 +117,11 @@ class ModrinthClient(private val logger: Logger) {
             .build()
 
         val response = httpClient.send(request, HttpResponse.BodyHandlers.ofFile(target))
-        return response.statusCode() == 200
+        if (response.statusCode() != 200) {
+            // ofFile writes the body regardless of status; don't leave junk behind
+            runCatching { Files.deleteIfExists(target) }
+            return false
+        }
+        return true
     }
 }

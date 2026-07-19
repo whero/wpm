@@ -146,7 +146,7 @@ Located at `plugins/WheroPluginManager/config.yml`:
 # Maximum number of results to show in search
 max-search-results: 10
 
-# Verify SHA256 hash when downloading from Hangar
+# Verify SHA256 hash when downloading plugins and updates
 verify-hash: true
 ```
 

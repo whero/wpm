@@ -32,7 +32,7 @@ class WheroPluginManager : JavaPlugin() {
         gitHubClient = GitHubClient()
         geyserMcClient = GeyserMcClient(logger)
         modrinthClient = ModrinthClient(logger)
-        pluginTracker = PluginTracker(dataFolder)
+        pluginTracker = PluginTracker(dataFolder, logger)
         installManager = PluginInstallManager(this)
 
         val command = getCommand("wpm")

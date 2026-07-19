@@ -8,6 +8,7 @@ import net.whero.pluginmanager.util.Messages.sendSuccess
 import net.whero.pluginmanager.util.Messages.sendWarning
 import org.bukkit.Bukkit
 import org.bukkit.command.CommandSender
+import net.whero.pluginmanager.util.FileUtils
 import net.whero.pluginmanager.util.VersionUtils
 import java.io.File
 import java.security.MessageDigest
@@ -47,7 +48,11 @@ class PluginInstallManager(private val plugin: WheroPluginManager) {
                 }
                 val download = version?.downloads?.get("PAPER")
                 val fileName = download?.fileInfo?.name ?: "$slug-$versionName.jar"
-                val targetFile = File(pluginsDir, fileName)
+                val targetFile = FileUtils.resolveInDir(pluginsDir, fileName)
+                if (targetFile == null) {
+                    sync { sender.sendError("Refusing unsafe file name '$fileName'; aborting install.") }
+                    return@async
+                }
 
                 if (targetFile.exists()) {
                     sync { sender.sendWarning("File $fileName already exists. Remove it first.") }
@@ -63,16 +68,9 @@ class PluginInstallManager(private val plugin: WheroPluginManager) {
                 }
 
                 // Verify hash if enabled
-                if (plugin.config.getBoolean("verify-hash", true)) {
-                    val expectedHash = download?.fileInfo?.sha256Hash
-                    if (expectedHash != null) {
-                        val actualHash = sha256(targetFile)
-                        if (!actualHash.equals(expectedHash, ignoreCase = true)) {
-                            targetFile.delete()
-                            sync { sender.sendError("SHA256 hash mismatch! Download deleted for safety.") }
-                            return@async
-                        }
-                    }
+                if (!hashMatches(targetFile, download?.fileInfo?.sha256Hash)) {
+                    sync { sender.sendError("SHA256 hash mismatch! Download deleted for safety.") }
+                    return@async
                 }
 
                 tracker.track(
@@ -128,7 +126,11 @@ class PluginInstallManager(private val plugin: WheroPluginManager) {
                     return@async
                 }
 
-                val targetFile = File(pluginsDir, asset.name)
+                val targetFile = FileUtils.resolveInDir(pluginsDir, asset.name)
+                if (targetFile == null) {
+                    sync { sender.sendError("Refusing unsafe file name '${asset.name}' from GitHub release; aborting install.") }
+                    return@async
+                }
                 if (targetFile.exists()) {
                     sync { sender.sendWarning("File ${asset.name} already exists. Remove it first.") }
                     return@async
@@ -139,6 +141,13 @@ class PluginInstallManager(private val plugin: WheroPluginManager) {
                 val success = gitHubClient.downloadAsset(asset.browserDownloadUrl, targetFile)
                 if (!success) {
                     sync { sender.sendError("Failed to download ${asset.name}.") }
+                    return@async
+                }
+
+                // GitHub provides no hashes; at least require a valid plugin JAR
+                if (!FileUtils.isValidPluginJar(targetFile)) {
+                    targetFile.delete()
+                    sync { sender.sendError("Downloaded file is not a valid plugin JAR. Deleted for safety.") }
                     return@async
                 }
 
@@ -188,7 +197,11 @@ class PluginInstallManager(private val plugin: WheroPluginManager) {
                     return@async
                 }
 
-                val targetFile = File(pluginsDir, download.name)
+                val targetFile = FileUtils.resolveInDir(pluginsDir, download.name)
+                if (targetFile == null) {
+                    sync { sender.sendError("Refusing unsafe file name '${download.name}'; aborting install.") }
+                    return@async
+                }
                 if (targetFile.exists()) {
                     sync { sender.sendWarning("File ${download.name} already exists. Remove it first.") }
                     return@async
@@ -203,13 +216,9 @@ class PluginInstallManager(private val plugin: WheroPluginManager) {
                     return@async
                 }
 
-                if (plugin.config.getBoolean("verify-hash", true)) {
-                    val actualHash = sha256(targetFile)
-                    if (!actualHash.equals(download.sha256, ignoreCase = true)) {
-                        targetFile.delete()
-                        sync { sender.sendError("SHA256 hash mismatch! Download deleted for safety.") }
-                        return@async
-                    }
+                if (!hashMatches(targetFile, download.sha256)) {
+                    sync { sender.sendError("SHA256 hash mismatch! Download deleted for safety.") }
+                    return@async
                 }
 
                 tracker.track(
@@ -259,7 +268,11 @@ class PluginInstallManager(private val plugin: WheroPluginManager) {
                 }
 
                 val fileName = modrinthClient.getFileName(version)
-                val targetFile = File(pluginsDir, fileName)
+                val targetFile = FileUtils.resolveInDir(pluginsDir, fileName)
+                if (targetFile == null) {
+                    sync { sender.sendError("Refusing unsafe file name '$fileName'; aborting install.") }
+                    return@async
+                }
 
                 if (targetFile.exists()) {
                     sync { sender.sendWarning("File $fileName already exists. Remove it first.") }
@@ -275,16 +288,9 @@ class PluginInstallManager(private val plugin: WheroPluginManager) {
                 }
 
                 // Verify hash if enabled
-                if (plugin.config.getBoolean("verify-hash", true)) {
-                    val expectedHash = modrinthClient.getFileHash(version)
-                    if (expectedHash != null) {
-                        val actualHash = sha256(targetFile)
-                        if (!actualHash.equals(expectedHash, ignoreCase = true)) {
-                            targetFile.delete()
-                            sync { sender.sendError("SHA256 hash mismatch! Download deleted for safety.") }
-                            return@async
-                        }
-                    }
+                if (!hashMatches(targetFile, modrinthClient.getFileHash(version))) {
+                    sync { sender.sendError("SHA256 hash mismatch! Download deleted for safety.") }
+                    return@async
                 }
 
                 tracker.track(
@@ -343,7 +349,11 @@ class PluginInstallManager(private val plugin: WheroPluginManager) {
             return
         }
 
-        val file = File(pluginsDir, currentFileName)
+        val file = FileUtils.resolveInDir(pluginsDir, currentFileName)
+        if (file == null) {
+            sender.sendError("Refusing unsafe file name '$currentFileName'.")
+            return
+        }
         if (!file.exists()) {
             sender.sendError("File $currentFileName not found in plugins folder.")
             return
@@ -453,7 +463,11 @@ class PluginInstallManager(private val plugin: WheroPluginManager) {
             return
         }
 
-        val file = File(pluginsDir, tracked.fileName)
+        val file = FileUtils.resolveInDir(pluginsDir, tracked.fileName)
+        if (file == null) {
+            sender.sendError("Refusing unsafe file name '${tracked.fileName}' in tracking data.")
+            return
+        }
         if (file.exists()) {
             if (!file.delete()) {
                 sender.sendWarning("Could not delete ${tracked.fileName}. It may be locked. Delete it manually and restart.")
@@ -530,8 +544,8 @@ class PluginInstallManager(private val plugin: WheroPluginManager) {
                     sync { sender.sendInfo("Updating ${tracked.name}: ${tracked.installedVersion} → $latestVersion") }
 
                     // Backup old file before replacing
-                    val oldFile = File(pluginsDir, tracked.fileName)
-                    if (oldFile.exists()) {
+                    val oldFile = FileUtils.resolveInDir(pluginsDir, tracked.fileName)
+                    if (oldFile != null && oldFile.exists()) {
                         backupPlugin(tracked)
                         oldFile.delete()
                     }
@@ -541,28 +555,43 @@ class PluginInstallManager(private val plugin: WheroPluginManager) {
                             val version = hangarClient.getVersion(tracked.sourceIdentifier, latestVersion)
                             val download = version?.downloads?.get("PAPER")
                             val newFileName = download?.fileInfo?.name ?: "${tracked.sourceIdentifier}-$latestVersion.jar"
-                            val targetFile = File(pluginsDir, newFileName)
+                            val targetFile = FileUtils.resolveInDir(pluginsDir, newFileName)
+                            if (targetFile == null) {
+                                sync { sender.sendError("Refusing unsafe file name '$newFileName' for ${tracked.name}.") }
+                                continue
+                            }
 
                             val success = hangarClient.downloadPlugin(tracked.sourceIdentifier, latestVersion, targetFile)
-                            if (success) {
-                                tracker.track(tracked.copy(
-                                    installedVersion = latestVersion,
-                                    fileName = newFileName,
-                                    installedAt = System.currentTimeMillis()
-                                ))
-                                sync { sender.sendSuccess("Updated ${tracked.name} to $latestVersion.") }
-                            } else {
+                            if (!success) {
                                 sync { sender.sendError("Failed to download update for ${tracked.name}.") }
+                                continue
                             }
+                            if (!hashMatches(targetFile, download?.fileInfo?.sha256Hash)) {
+                                sync { sender.sendError("SHA256 hash mismatch updating ${tracked.name}! Download deleted. Run /wpm rollback ${tracked.name} to restore the previous version.") }
+                                continue
+                            }
+                            tracker.track(tracked.copy(
+                                installedVersion = latestVersion,
+                                fileName = newFileName,
+                                installedAt = System.currentTimeMillis()
+                            ))
+                            sync { sender.sendSuccess("Updated ${tracked.name} to $latestVersion.") }
                         }
                         "github" -> {
                             val parts = tracked.sourceIdentifier.split("/", limit = 2)
                             val release = gitHubClient.getLatestRelease(parts[0], parts[1])
                             val asset = release?.let { gitHubClient.findJarAsset(it, parts[1]) }
                             if (asset != null) {
-                                val targetFile = File(pluginsDir, asset.name)
+                                val targetFile = FileUtils.resolveInDir(pluginsDir, asset.name)
+                                if (targetFile == null) {
+                                    sync { sender.sendError("Refusing unsafe file name '${asset.name}' for ${tracked.name}.") }
+                                    continue
+                                }
                                 val success = gitHubClient.downloadAsset(asset.browserDownloadUrl, targetFile)
-                                if (success) {
+                                if (success && !FileUtils.isValidPluginJar(targetFile)) {
+                                    targetFile.delete()
+                                    sync { sender.sendError("Downloaded update for ${tracked.name} is not a valid plugin JAR. Deleted for safety.") }
+                                } else if (success) {
                                     tracker.track(tracked.copy(
                                         installedVersion = latestVersion,
                                         fileName = asset.name,
@@ -578,9 +607,15 @@ class PluginInstallManager(private val plugin: WheroPluginManager) {
                             val build = geyserMcClient.getLatestBuild(tracked.sourceIdentifier)
                             val download = build?.downloads?.get("spigot")
                             if (build != null && download != null) {
-                                val targetFile = File(pluginsDir, download.name)
+                                val targetFile = FileUtils.resolveInDir(pluginsDir, download.name)
+                                if (targetFile == null) {
+                                    sync { sender.sendError("Refusing unsafe file name '${download.name}' for ${tracked.name}.") }
+                                    continue
+                                }
                                 val success = geyserMcClient.downloadPlugin(tracked.sourceIdentifier, build, targetFile = targetFile)
-                                if (success) {
+                                if (success && !hashMatches(targetFile, download.sha256)) {
+                                    sync { sender.sendError("SHA256 hash mismatch updating ${tracked.name}! Download deleted. Run /wpm rollback ${tracked.name} to restore the previous version.") }
+                                } else if (success) {
                                     tracker.track(tracked.copy(
                                         installedVersion = latestVersion,
                                         fileName = download.name,
@@ -598,9 +633,15 @@ class PluginInstallManager(private val plugin: WheroPluginManager) {
                             val version = modrinthClient.getLatestVersion(tracked.sourceIdentifier)
                             if (version != null) {
                                 val newFileName = modrinthClient.getFileName(version)
-                                val targetFile = File(pluginsDir, newFileName)
+                                val targetFile = FileUtils.resolveInDir(pluginsDir, newFileName)
+                                if (targetFile == null) {
+                                    sync { sender.sendError("Refusing unsafe file name '$newFileName' for ${tracked.name}.") }
+                                    continue
+                                }
                                 val success = modrinthClient.downloadPlugin(version, targetFile)
-                                if (success) {
+                                if (success && !hashMatches(targetFile, modrinthClient.getFileHash(version))) {
+                                    sync { sender.sendError("SHA256 hash mismatch updating ${tracked.name}! Download deleted. Run /wpm rollback ${tracked.name} to restore the previous version.") }
+                                } else if (success) {
                                     tracker.track(tracked.copy(
                                         installedVersion = latestVersion,
                                         fileName = newFileName,
@@ -634,7 +675,7 @@ class PluginInstallManager(private val plugin: WheroPluginManager) {
             return
         }
 
-        val pluginBackupDir = File(backupsDir, tracked.name.lowercase())
+        val pluginBackupDir = backupDirFor(tracked.name)
         if (!pluginBackupDir.exists()) {
             sender.sendError("No backups found for ${tracked.name}.")
             return
@@ -658,13 +699,13 @@ class PluginInstallManager(private val plugin: WheroPluginManager) {
 
         val backupVersion = extractBackupVersion(backupFile)
 
-        // Delete current plugin file
-        val currentFile = File(pluginsDir, tracked.fileName)
-        if (currentFile.exists()) currentFile.delete()
-
-        // Copy backup to plugins dir
-        val restoredFileName = tracked.fileName
-        val targetFile = File(pluginsDir, restoredFileName)
+        // Delete current plugin file and copy the backup into the plugins dir
+        val targetFile = FileUtils.resolveInDir(pluginsDir, tracked.fileName)
+        if (targetFile == null) {
+            sender.sendError("Refusing unsafe file name '${tracked.fileName}' in tracking data.")
+            return
+        }
+        if (targetFile.exists()) targetFile.delete()
         backupFile.copyTo(targetFile, overwrite = true)
 
         // Update tracking
@@ -677,15 +718,19 @@ class PluginInstallManager(private val plugin: WheroPluginManager) {
     }
 
     fun getBackups(pluginName: String): List<File> {
-        val pluginBackupDir = File(backupsDir, pluginName.lowercase())
+        val pluginBackupDir = backupDirFor(pluginName)
         if (!pluginBackupDir.exists()) return emptyList()
         return pluginBackupDir.listFiles { f -> f.isFile && f.name.endsWith(".jar") }
             ?.sortedByDescending { it.lastModified() }
             ?: emptyList()
     }
 
+    /** Backup directory for a plugin; the name is sanitized for use as a directory name. */
+    private fun backupDirFor(pluginName: String): File =
+        File(backupsDir, pluginName.lowercase().replace(Regex("[^a-z0-9._-]"), "_"))
+
     private fun backupPlugin(tracked: TrackedPlugin) {
-        val pluginBackupDir = File(backupsDir, tracked.name.lowercase())
+        val pluginBackupDir = backupDirFor(tracked.name)
         pluginBackupDir.mkdirs()
 
         val sourceFile = File(pluginsDir, tracked.fileName)
@@ -710,6 +755,19 @@ class PluginInstallManager(private val plugin: WheroPluginManager) {
         val name = file.nameWithoutExtension
         val dashIndex = name.indexOf('-')
         return if (dashIndex >= 0) name.substring(dashIndex + 1) else name
+    }
+
+    /**
+     * Returns true when hash verification is disabled, no expected hash is
+     * available, or [file]'s SHA-256 matches [expectedHash]. On mismatch the
+     * file is deleted.
+     */
+    private fun hashMatches(file: File, expectedHash: String?): Boolean {
+        if (!plugin.config.getBoolean("verify-hash", true)) return true
+        if (expectedHash == null) return true
+        val matches = sha256(file).equals(expectedHash, ignoreCase = true)
+        if (!matches) file.delete()
+        return matches
     }
 
     private fun sha256(file: File): String {
