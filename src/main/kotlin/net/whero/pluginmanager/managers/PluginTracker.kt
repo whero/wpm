@@ -48,7 +48,10 @@ class PluginTracker(private val dataFolder: File, private val logger: Logger) {
 
         val type = object : TypeToken<List<TrackedPlugin>>() {}.type
         val list: List<TrackedPlugin> = try {
-            gson.fromJson(json, type) ?: return
+            // Explicit type argument required: inside try + elvis, Kotlin infers
+            // the Gson type parameter as Nothing (java.lang.Void) and the parsed
+            // ArrayList fails a checkcast at runtime.
+            gson.fromJson<List<TrackedPlugin>>(json, type) ?: return
         } catch (e: Exception) {
             logger.warning("Could not parse installed-plugins.json (${e.message}); starting with empty tracking data.")
             return
